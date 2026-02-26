@@ -1,7 +1,7 @@
 // Settings IPC handlers - general app settings
 // Manages user preferences for ASR, subtitle defaults, export, etc.
 
-import { ipcMain } from 'electron'
+import { ipcMain, dialog } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
@@ -42,6 +42,7 @@ const DEFAULTS: Record<string, any> = {
   'edit.silenceThreshold': -35,
   'edit.minSilenceDuration': 0.8,
   'edit.fillerWords': ['嗯', '啊', '那个', '然后', '就是', '就是说', '对对对', '这个'],
+  'edit.fillerPrompt': '你是一个视频剪辑助手，帮助口播视频创作者去除废话。\n\n请分析以下编号词语列表（来自中文口播视频转录），找出所有废话词：\n- 语气词：嗯、啊、哦、呢、吧、哈、哎、唉\n- 填充词：那个、然后、就是、就是说、对对对、这个\n- 无意义重复：同一语义连续重复出现\n\n请只返回 JSON 格式，不要有任何其他内容：{"indices": [废话词的序号列表]}',
 
   // Subtitle
   'subtitle.defaultTemplate': 'classic-white',
@@ -96,5 +97,17 @@ export function registerSettingsIPC() {
   ipcMain.handle('settings:resetAll', () => {
     saveSettings({})
     return { ok: true }
+  })
+
+  // Open native directory picker dialog
+  ipcMain.handle('settings:select-dir', async (event) => {
+    const win = require('electron').BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || !result.filePaths.length) {
+      return { ok: false }
+    }
+    return { ok: true, path: result.filePaths[0] }
   })
 }

@@ -6,6 +6,10 @@ directories:
 files:
   - dist
   - dist-electron
+  - node_modules/node-llama-cpp/**
+asarUnpack:
+  # node-llama-cpp native binaries cannot be inside asar archive
+  - node_modules/node-llama-cpp/**
 mac:
   artifactName: ${name}-${version}-${arch}.${ext}
   target:

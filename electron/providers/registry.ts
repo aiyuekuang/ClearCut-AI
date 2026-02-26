@@ -86,6 +86,19 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     ],
   },
   {
+    id: 'ollama',
+    name: 'Ollama (本地模型)',
+    baseUrl: 'http://localhost:11434/v1',
+    sdkType: 'openai-compatible',
+    authModes: ['api_key'],
+    icon: 'ollama',
+    models: [
+      { id: 'qwen2.5:7b', name: 'Qwen2.5 7B', description: '中文推荐' },
+      { id: 'qwen2.5:14b', name: 'Qwen2.5 14B', description: '更强中文能力' },
+      { id: 'llama3.2:3b', name: 'Llama 3.2 3B', description: '轻量快速' },
+    ],
+  },
+  {
     id: 'custom',
     name: '自定义 OpenAI 兼容',
     baseUrl: '',

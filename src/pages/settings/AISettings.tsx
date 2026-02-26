@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
 import type { ProviderConfig, ProviderStatus, ProviderAuth } from '../../types/provider'
+import { LocalModelSection } from './LocalModelSection'
 
 // --- Provider Card Component ---
 
@@ -248,6 +249,12 @@ export default function AISettings() {
         <h2>AI 模型设置</h2>
         <p className="settings-desc">配置 LLM 提供商的 API 密钥，用于智能剪辑和 AI 分析功能</p>
       </div>
+
+      {/* Built-in local model */}
+      <section className="provider-section">
+        <h3 className="section-title">内置本地模型（推荐）</h3>
+        <LocalModelSection />
+      </section>
 
       {/* Active provider summary */}
       {activeProvider && (

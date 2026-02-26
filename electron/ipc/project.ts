@@ -127,4 +127,27 @@ export function registerProjectIPC() {
     }
     return null
   })
+
+  // Save transcript result to disk cache
+  ipcMain.handle('project:save-transcript', (_event, projectId: string, result: unknown) => {
+    try {
+      const cachePath = path.join(PROJECTS_DIR, projectId, 'transcript.json')
+      fs.writeFileSync(cachePath, JSON.stringify(result))
+      return { ok: true }
+    } catch (e: any) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  // Load transcript result from disk cache
+  ipcMain.handle('project:load-transcript', (_event, projectId: string) => {
+    try {
+      const cachePath = path.join(PROJECTS_DIR, projectId, 'transcript.json')
+      if (!fs.existsSync(cachePath)) return { ok: false }
+      const result = JSON.parse(fs.readFileSync(cachePath, 'utf-8'))
+      return { ok: true, result }
+    } catch {
+      return { ok: false }
+    }
+  })
 }

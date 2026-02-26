@@ -75,6 +75,11 @@ export function registerVideoIPC() {
       fs.mkdirSync(tempDir, { recursive: true })
       const audioPath = path.join(tempDir, 'audio.wav')
 
+      // Skip re-extraction if audio file already exists
+      if (fs.existsSync(audioPath)) {
+        return { ok: true, audioPath }
+      }
+
       // Extract as 16kHz mono WAV - optimal for ASR models
       await execFileAsync(findBin('ffmpeg'), [
         '-y',

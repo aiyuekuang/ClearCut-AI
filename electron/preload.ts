@@ -25,6 +25,10 @@ const projectAPI = {
   list: () => ipcRenderer.invoke('project:list'),
   get: (projectId: string) => ipcRenderer.invoke('project:get', projectId),
   delete: (projectId: string) => ipcRenderer.invoke('project:delete', projectId),
+  saveTranscript: (projectId: string, result: unknown) =>
+    ipcRenderer.invoke('project:save-transcript', projectId, result),
+  loadTranscript: (projectId: string) =>
+    ipcRenderer.invoke('project:load-transcript', projectId),
 }
 
 const settingsAPI = {
@@ -34,6 +38,7 @@ const settingsAPI = {
   setMany: (entries: Record<string, unknown>) => ipcRenderer.invoke('settings:setMany', entries),
   reset: (key: string) => ipcRenderer.invoke('settings:reset', key),
   resetAll: () => ipcRenderer.invoke('settings:resetAll'),
+  selectDir: () => ipcRenderer.invoke('settings:select-dir'),
 }
 
 const videoAPI = {
@@ -49,6 +54,7 @@ const transcriptAPI = {
   status: (jobId: string) => ipcRenderer.invoke('transcript:status', jobId),
   cancel: (jobId: string) => ipcRenderer.invoke('transcript:cancel', jobId),
   detectFillers: (params: unknown) => ipcRenderer.invoke('transcript:detect-fillers', params),
+  detectFillersLLM: (params: unknown) => ipcRenderer.invoke('transcript:detect-fillers-llm', params),
   detectSilence: (params: unknown) => ipcRenderer.invoke('transcript:detect-silence', params),
 }
 
@@ -59,6 +65,21 @@ const subtitleAPI = {
   read: (filePath: string) => ipcRenderer.invoke('subtitle:read', filePath),
 }
 
+const llmAPI = {
+  modelStatus: () => ipcRenderer.invoke('llm:model-status'),
+  downloadModel: () => ipcRenderer.invoke('llm:download-model'),
+  cancelDownload: () => ipcRenderer.invoke('llm:cancel-download'),
+  deleteModel: () => ipcRenderer.invoke('llm:delete-model'),
+  onDownloadProgress: (
+    callback: (progress: { downloaded: number; total: number; percent: number }) => void,
+  ) => {
+    const handler = (_: Electron.IpcRendererEvent, data: { downloaded: number; total: number; percent: number }) =>
+      callback(data)
+    ipcRenderer.on('llm:download-progress', handler)
+    return () => ipcRenderer.removeListener('llm:download-progress', handler)
+  },
+}
+
 contextBridge.exposeInMainWorld('api', {
   provider: providerAPI,
   project: projectAPI,
@@ -66,4 +87,5 @@ contextBridge.exposeInMainWorld('api', {
   video: videoAPI,
   transcript: transcriptAPI,
   subtitle: subtitleAPI,
+  llm: llmAPI,
 })

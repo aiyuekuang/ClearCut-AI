@@ -50,11 +50,16 @@ class SilenceRequest(BaseModel):
 
 def _run_transcription(job_id: str, req: StartRequest):
     """Run in thread pool - updates job state when done."""
+    import logging
+    log = logging.getLogger("transcribe")
     try:
         _jobs[job_id]["status"] = "processing"
         _jobs[job_id]["progress"] = 10
+        log.info("[job:%s] started audio=%s lang=%s engine=%s", job_id[:8], req.audio_path, req.language, req.engine)
 
+        log.info("[job:%s] loading ASR service (may download model on first run)...", job_id[:8])
         from services.asr_service import transcribe
+        log.info("[job:%s] calling transcribe...", job_id[:8])
         result = transcribe(
             audio_path=req.audio_path,
             language=req.language,
@@ -62,11 +67,14 @@ def _run_transcription(job_id: str, req: StartRequest):
             model_quality=req.model_quality,
         )
 
+        log.info("[job:%s] transcription done, segments=%d words=%d",
+                 job_id[:8], len(result.get("segments", [])), len(result.get("words", [])))
         _jobs[job_id]["status"] = "done"
         _jobs[job_id]["progress"] = 100
         _jobs[job_id]["result"] = result
 
     except Exception as e:
+        log.error("[job:%s] FAILED: %s", job_id[:8], e)
         _jobs[job_id]["status"] = "error"
         _jobs[job_id]["error"] = str(e)
         import traceback

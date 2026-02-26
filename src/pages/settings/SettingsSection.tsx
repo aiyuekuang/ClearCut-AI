@@ -1,7 +1,12 @@
 // Config-driven settings section renderer
 // Renders setting items based on their type from config
+// Uses antd components for consistent UI
 
 import { useEffect, useState } from 'react'
+import {
+  Input, Select, Slider, Switch, Button, Tag, Spin, Tooltip,
+} from 'antd'
+import { FolderOpen, X } from 'lucide-react'
 import type { SettingSection, SettingItem } from '@/config/settings.config'
 
 type SettingsSectionProps = {
@@ -9,7 +14,7 @@ type SettingsSectionProps = {
 }
 
 export function SettingsSection({ section }: SettingsSectionProps) {
-  const [values, setValues] = useState<Record<string, any>>({})
+  const [values, setValues] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -19,7 +24,7 @@ export function SettingsSection({ section }: SettingsSectionProps) {
       setValues(all)
       setLoading(false)
     }
-    load()
+    void load()
   }, [section.id])
 
   const handleChange = async (key: string, value: unknown) => {
@@ -28,19 +33,27 @@ export function SettingsSection({ section }: SettingsSectionProps) {
   }
 
   if (loading) {
-    return <div className="text-sm text-text-muted">加载中...</div>
+    return (
+      <div className="flex items-center gap-2 py-8 text-sm text-text-muted">
+        <Spin size="small" />
+        <span>加载中...</span>
+      </div>
+    )
   }
 
   return (
     <div>
-      <h2 className="mb-6 text-lg font-semibold text-text">{section.title}</h2>
-      <div className="space-y-6">
+      <h2 className="mb-1 text-base font-semibold text-text">{section.title}</h2>
+      <p className="mb-6 text-xs text-text-muted border-b border-border pb-4">
+        {getSectionDescription(section.id)}
+      </p>
+      <div className="space-y-7">
         {section.items.map((item) => (
           <SettingItemRenderer
             key={item.key}
             item={item}
             value={values[item.key] ?? item.defaultValue}
-            onChange={(val) => handleChange(item.key, val)}
+            onChange={(val) => void handleChange(item.key, val)}
           />
         ))}
       </div>
@@ -48,103 +61,174 @@ export function SettingsSection({ section }: SettingsSectionProps) {
   )
 }
 
-// --- Individual setting item renderers ---
+function getSectionDescription(id: string): string {
+  const map: Record<string, string> = {
+    general: '应用行为与基础偏好设置',
+    paths: '模型、项目和临时文件的存储位置',
+    asr: '语音识别引擎配置，影响转录速度与准确率',
+    edit: '自动去静音与去废话的检测参数',
+    subtitle: '字幕生成和导出的默认样式',
+    export: '视频导出的格式、编码和质量参数',
+  }
+  return map[id] ?? ''
+}
+
+// ─── Individual setting item renderers ─────────────────────────────────────
 
 type ItemProps = {
   item: SettingItem
-  value: any
+  value: unknown
   onChange: (value: unknown) => void
 }
 
 function SettingItemRenderer({ item, value, onChange }: ItemProps) {
+  // Full-width items (textarea, tags) get a stacked layout
+  if (item.type === 'textarea' || item.type === 'tags') {
+    return (
+      <div>
+        <div className="mb-2">
+          <label className="text-sm font-medium text-text">{item.label}</label>
+          {item.description && (
+            <p className="mt-0.5 text-xs text-text-muted">{item.description}</p>
+          )}
+        </div>
+        {item.type === 'textarea' && (
+          <TextareaInput item={item} value={value} onChange={onChange} />
+        )}
+        {item.type === 'tags' && (
+          <TagsInput item={item} value={value} onChange={onChange} />
+        )}
+      </div>
+    )
+  }
+
+  // Inline items: label on left, control on right
   return (
     <div className="flex items-start justify-between gap-8">
-      <div className="shrink-0">
+      <div className="shrink-0 max-w-[50%]">
         <label className="text-sm font-medium text-text">{item.label}</label>
         {item.description && (
-          <p className="mt-0.5 text-xs text-text-muted">{item.description}</p>
+          <p className="mt-0.5 text-xs text-text-muted leading-relaxed">{item.description}</p>
         )}
       </div>
       <div className="w-64 shrink-0">
         {item.type === 'select' && <SelectInput item={item} value={value} onChange={onChange} />}
         {item.type === 'slider' && <SliderInput item={item} value={value} onChange={onChange} />}
-        {item.type === 'input' && <TextInput value={value} onChange={onChange} />}
+        {item.type === 'input'  && <TextInput item={item} value={value} onChange={onChange} />}
         {item.type === 'switch' && <SwitchInput value={value} onChange={onChange} />}
-        {item.type === 'tags' && <TagsInput value={value} onChange={onChange} />}
-        {item.type === 'path' && <PathInput value={value} onChange={onChange} />}
+        {item.type === 'path'   && <PathInput item={item} value={value} onChange={onChange} />}
       </div>
     </div>
   )
 }
 
+// ─── Controls ───────────────────────────────────────────────────────────────
+
 function SelectInput({ item, value, onChange }: ItemProps) {
-  const options = (item.props?.options as Array<{ value: string; label: string }>) || []
+  const options = (item.props?.options as Array<{ value: string; label: string }>) ?? []
   return (
-    <select
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-text outline-none focus:border-brand"
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+    <Select
+      size="small"
+      value={(value as string) ?? ''}
+      onChange={onChange}
+      options={options}
+      className="w-full"
+      popupMatchSelectWidth={false}
+    />
   )
 }
 
 function SliderInput({ item, value, onChange }: ItemProps) {
-  const min = (item.props?.min as number) ?? 0
-  const max = (item.props?.max as number) ?? 100
+  const min  = (item.props?.min  as number) ?? 0
+  const max  = (item.props?.max  as number) ?? 100
   const step = (item.props?.step as number) ?? 1
   const unit = (item.props?.unit as string) ?? ''
+  const num  = (value as number) ?? min
 
   return (
     <div className="flex items-center gap-3">
-      <input
-        type="range"
+      <Slider
         min={min}
         max={max}
         step={step}
-        value={value ?? min}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 accent-brand"
+        value={num}
+        onChange={(v) => onChange(v)}
+        className="flex-1"
+        tooltip={{ formatter: (v) => `${v}${unit}` }}
+        styles={{
+          track: { background: '#22D3EE' },
+          rail:  { background: '#2D2D2D' },
+        }}
       />
-      <span className="w-16 text-right text-sm text-text-secondary">
-        {value}{unit}
+      <span className="w-14 text-right text-xs font-mono text-text-secondary shrink-0">
+        {num}{unit}
       </span>
     </div>
   )
 }
 
-function TextInput({ value, onChange }: Omit<ItemProps, 'item'>) {
+function SwitchInput({ value, onChange }: Omit<ItemProps, 'item'>) {
   return (
-    <input
-      type="text"
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-text outline-none focus:border-brand"
+    <Switch
+      size="small"
+      checked={!!value}
+      onChange={onChange}
+      style={{ background: value ? '#22D3EE' : undefined }}
     />
   )
 }
 
-function SwitchInput({ value, onChange }: Omit<ItemProps, 'item'>) {
+function TextInput({ item, value, onChange }: ItemProps) {
+  const placeholder = (item.props?.placeholder as string) ?? ''
   return (
-    <button
-      onClick={() => onChange(!value)}
-      className={`relative h-6 w-11 rounded-full transition-colors ${value ? 'bg-brand' : 'bg-surface-3'}`}
-    >
-      <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : 'translate-x-0.5'}`}
-      />
-    </button>
+    <Input
+      size="small"
+      value={(value as string) ?? ''}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full"
+    />
   )
 }
 
-function TagsInput({ value, onChange }: Omit<ItemProps, 'item'>) {
-  const tags = Array.isArray(value) ? value : []
+function PathInput({ item, value, onChange }: ItemProps) {
+  const placeholder = (item.props?.placeholder as string) ?? '选择目录...'
+
+  const handleBrowse = async () => {
+    try {
+      const result = await window.api.settings.selectDir()
+      if (result.ok && result.path) onChange(result.path)
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <div className="flex gap-1.5">
+      <Tooltip title={placeholder} placement="topLeft" mouseEnterDelay={0.8}>
+        <Input
+          size="small"
+          value={(value as string) ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 min-w-0 font-mono text-[11px]"
+        />
+      </Tooltip>
+      <Button
+        size="small"
+        icon={<FolderOpen className="h-3.5 w-3.5" />}
+        onClick={() => void handleBrowse()}
+        className="shrink-0 !px-2"
+        title="浏览..."
+      />
+    </div>
+  )
+}
+
+function TagsInput({ item, value, onChange }: ItemProps) {
+  const tags = Array.isArray(value) ? (value as string[]) : []
   const [input, setInput] = useState('')
+  const placeholder = (item.props?.placeholder as string) ?? '输入后回车添加'
 
   const addTag = () => {
     const trimmed = input.trim()
@@ -155,56 +239,48 @@ function TagsInput({ value, onChange }: Omit<ItemProps, 'item'>) {
   }
 
   const removeTag = (tag: string) => {
-    onChange(tags.filter((t: string) => t !== tag))
+    onChange(tags.filter((t) => t !== tag))
   }
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap gap-1.5">
-        {tags.map((tag: string) => (
-          <span
+      <div className="mb-2 flex flex-wrap gap-1.5 min-h-[24px]">
+        {tags.map((tag) => (
+          <Tag
             key={tag}
-            className="flex items-center gap-1 rounded-md bg-surface-3 px-2 py-0.5 text-xs text-text-secondary"
+            closable
+            closeIcon={<X className="h-2.5 w-2.5" />}
+            onClose={() => removeTag(tag)}
+            bordered={false}
+            className="!text-xs !m-0"
           >
             {tag}
-            <button
-              onClick={() => removeTag(tag)}
-              className="text-text-muted hover:text-danger"
-            >
-              ×
-            </button>
-          </span>
+          </Tag>
         ))}
       </div>
-      <input
-        type="text"
+      <Input
+        size="small"
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && addTag()}
-        placeholder="输入后回车添加"
-        className="w-full rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-text outline-none focus:border-brand"
+        placeholder={placeholder}
+        className="w-full"
+        onBlur={addTag}
       />
     </div>
   )
 }
 
-function PathInput({ value, onChange }: Omit<ItemProps, 'item'>) {
+function TextareaInput({ item, value, onChange }: ItemProps) {
+  const rows        = (item.props?.rows        as number) ?? 4
+  const placeholder = (item.props?.placeholder as string) ?? ''
   return (
-    <div className="flex gap-2">
-      <input
-        type="text"
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="选择目录..."
-        className="flex-1 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-text outline-none focus:border-brand"
-        readOnly
-      />
-      <button
-        onClick={() => onChange('')}
-        className="shrink-0 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-3"
-      >
-        选择
-      </button>
-    </div>
+    <Input.TextArea
+      rows={rows}
+      value={(value as string) ?? ''}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full resize-y font-mono text-xs"
+    />
   )
 }

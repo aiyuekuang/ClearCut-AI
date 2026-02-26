@@ -3,6 +3,7 @@
 
 import { NavLink } from 'react-router-dom'
 import { Home, Settings } from 'lucide-react'
+import { Tooltip } from 'antd'
 import { routes } from '@/config/routes.config'
 import { cn } from '@/lib/utils'
 
@@ -15,25 +16,25 @@ export function Sidebar() {
   const navRoutes = routes.filter((r) => r.showInNav)
 
   return (
-    <aside className="flex w-16 flex-col items-center gap-2 border-r border-border bg-surface py-4">
+    <aside className="flex w-14 flex-col items-center gap-1 border-r border-border bg-surface py-3">
       {navRoutes.map((route) => {
         const Icon = route.icon ? iconMap[route.icon] : null
         return (
-          <NavLink
-            key={route.path}
-            to={route.path}
-            className={({ isActive }) =>
-              cn(
-                'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-                isActive
-                  ? 'bg-brand/15 text-brand'
-                  : 'text-text-muted hover:bg-surface-2 hover:text-text-secondary',
-              )
-            }
-            title={route.name}
-          >
-            {Icon && <Icon className="h-5 w-5" />}
-          </NavLink>
+          <Tooltip key={route.path} title={route.name} placement="right" mouseEnterDelay={0.4}>
+            <NavLink
+              to={route.path}
+              className={({ isActive }) =>
+                cn(
+                  'flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150',
+                  isActive
+                    ? 'bg-brand/15 text-brand shadow-sm'
+                    : 'text-text-muted hover:bg-surface-2 hover:text-text-secondary',
+                )
+              }
+            >
+              {Icon && <Icon className="h-[18px] w-[18px]" />}
+            </NavLink>
+          </Tooltip>
         )
       })}
     </aside>

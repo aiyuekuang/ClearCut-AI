@@ -20,6 +20,7 @@ declare global {
         setMany(entries: Record<string, unknown>): Promise<{ ok: boolean }>
         reset(key: string): Promise<{ ok: boolean; value: unknown }>
         resetAll(): Promise<{ ok: boolean }>
+        selectDir(): Promise<{ ok: boolean; path?: string }>
       }
       video: {
         meta(filePath: string): Promise<{ ok: boolean; meta: { duration: number; width: number; height: number; fps: number; codec: string; size: number; bitrate: number }; error?: string }>

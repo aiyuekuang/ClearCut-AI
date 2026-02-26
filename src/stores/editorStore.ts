@@ -59,6 +59,9 @@ type EditorState = {
   deleteAllSilence: () => void
   deleteAllFillers: () => void
 
+  updateWord: (id: string, word: string) => void
+  replaceWords: (findText: string, replaceText: string) => number
+
   setCurrentTime: (time: number) => void
   setIsPlaying: (playing: boolean) => void
   setActiveSegment: (id: string | null) => void
@@ -173,6 +176,24 @@ export const useEditorStore = create<EditorState>()(
       set((s) => {
         s.segments.forEach((x: EditSegment) => { if (x.status === 'filler') x.status = 'deleted' })
       }),
+
+    updateWord: (id, word) =>
+      set((s) => {
+        const seg = s.segments.find((x: EditSegment) => x.id === id)
+        if (seg) seg.word = word
+      }),
+
+    replaceWords: (findText, replaceText) => {
+      const count = get().segments.filter((s) => s.word.includes(findText)).length
+      set((s) => {
+        s.segments.forEach((seg: EditSegment) => {
+          if (seg.word.includes(findText)) {
+            seg.word = seg.word.split(findText).join(replaceText)
+          }
+        })
+      })
+      return count
+    },
 
     setCurrentTime: (time) => set((s) => { s.currentTime = time }),
     setIsPlaying: (playing) => set((s) => { s.isPlaying = playing }),

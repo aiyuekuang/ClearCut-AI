@@ -4,13 +4,13 @@
   --color-brand: #22D3EE;
   --color-brand-dark: #06B6D4;
   --color-danger: #E11D48;
-  --color-surface: #0F172A;
-  --color-surface-2: #1E293B;
-  --color-surface-3: #334155;
-  --color-border: #334155;
-  --color-text: #F8FAFC;
-  --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
+  --color-surface: #181818;
+  --color-surface-2: #222222;
+  --color-surface-3: #2D2D2D;
+  --color-border: #3A3A3A;
+  --color-text: #F0F0F0;
+  --color-text-secondary: #A0A0A0;
+  --color-text-muted: #666666;
 }
 
 body {
@@ -34,7 +34,7 @@ body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -45,4 +45,41 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* antd overrides - ensure dark theme harmony */
+.ant-btn {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+/* antd menu highlight on active */
+.ant-menu-item-selected {
+  font-weight: 500;
+}
+
+/* antd card hover glow */
+.ant-card-hoverable:hover {
+  border-color: rgba(34, 211, 238, 0.3) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* antd dropdown menu */
+.ant-dropdown .ant-dropdown-menu {
+  padding: 4px;
+}
+
+.ant-dropdown .ant-dropdown-menu-item {
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* antd message toast */
+.ant-message-notice-content {
+  font-size: 13px;
+}
+
+/* antd progress track */
+.ant-progress-inner {
+  border-radius: 4px;
 }

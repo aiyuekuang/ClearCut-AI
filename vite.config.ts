@@ -14,7 +14,8 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron'],
+              // node-llama-cpp is a native ESM module, must not be bundled
+            external: ['electron', 'node-llama-cpp'],
             },
           },
         },

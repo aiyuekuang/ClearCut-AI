@@ -1,7 +1,7 @@
 // ClearCut-AI Electron Main Process
 // Manages window lifecycle, IPC registration, and Python sidecar
 
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, protocol, net } from 'electron'
 import path from 'path'
 import { registerProviderIPC } from './ipc/provider'
 import { registerProjectIPC } from './ipc/project'
@@ -9,7 +9,13 @@ import { registerSettingsIPC } from './ipc/settings'
 import { registerVideoIPC } from './ipc/video'
 import { registerTranscriptIPC } from './ipc/transcript'
 import { registerSubtitleIPC } from './ipc/subtitle'
+import { registerLLMIPC } from './ipc/llm'
 import { startSidecar, stopSidecar } from './sidecar'
+
+// Register custom scheme before app is ready (required by Electron)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'clearcut', privileges: { secure: true, standard: true, stream: true, supportFetchAPI: true } },
+])
 
 const isDev = !app.isPackaged
 
@@ -51,9 +57,17 @@ function registerAllIPC() {
   registerVideoIPC()
   registerTranscriptIPC()
   registerSubtitleIPC()
+  registerLLMIPC()
 }
 
 app.whenReady().then(async () => {
+  // Serve local media files via clearcut:// protocol to bypass HTTP→file:// security restrictions
+  protocol.handle('clearcut', (request) => {
+    const url = new URL(request.url)
+    const filePath = decodeURIComponent(url.pathname)
+    return net.fetch(`file://${filePath}`)
+  })
+
   registerAllIPC()
   createWindow()
 
