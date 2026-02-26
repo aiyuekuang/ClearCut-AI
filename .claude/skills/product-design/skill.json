@@ -1,0 +1,56 @@
+{
+  "name": "product-design",
+  "displayName": "产品设计与需求分析",
+  "version": "1.1.0",
+  "description": "产品功能设计、需求分析、用户体验设计和 Schema 设计规范",
+  "triggers": {
+    "keywords": [
+      "设计",
+      "需求",
+      "竞品分析",
+      "方案设计",
+      "功能设计",
+      "产品设计",
+      "需求分析",
+      "Schema",
+      "数据结构设计",
+      "API设计",
+      "页面设计",
+      "交互设计"
+    ],
+    "patterns": [
+      "我想做.*功能",
+      "帮我设计.*",
+      "怎么实现.*",
+      "如何做.*功能",
+      ".*方案.*",
+      ".*设计.*"
+    ],
+    "intentDetection": {
+      "enabled": true,
+      "contexts": [
+        "用户提出新功能开发需求",
+        "用户询问如何设计某个功能",
+        "用户请求进行竞品分析",
+        "用户需要制定技术方案",
+        "用户询问数据结构设计"
+      ]
+    }
+  },
+  "autoInvoke": {
+    "enabled": true,
+    "priority": "high",
+    "conditions": [
+      "用户明确提到'设计'、'需求'、'方案'等关键词",
+      "用户描述要实现某个新功能",
+      "用户询问如何实现某个业务场景"
+    ]
+  },
+  "validationPhrase": "尊敬的主人",
+  "tags": [
+    "product-design",
+    "requirements",
+    "ux-design",
+    "schema-design"
+  ]
+}

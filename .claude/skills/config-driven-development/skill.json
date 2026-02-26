@@ -1,0 +1,57 @@
+{
+  "name": "config-driven-development",
+  "displayName": "配置驱动开发",
+  "version": "1.2.0",
+  "description": "使用配置文件驱动业务逻辑、UI渲染和数据处理的设计模式",
+  "triggers": {
+    "keywords": [
+      "代码检查",
+      "代码质量",
+      "配置化",
+      "硬编码",
+      "重复代码",
+      "代码优化",
+      "重构",
+      "配置驱动",
+      "消除硬编码",
+      "代码审查",
+      "代码规范"
+    ],
+    "patterns": [
+      "检查.*代码",
+      "优化.*代码",
+      "重构.*",
+      "消除硬编码",
+      ".*配置化.*",
+      "代码质量.*",
+      "代码审查"
+    ],
+    "intentDetection": {
+      "enabled": true,
+      "contexts": [
+        "用户请求检查代码质量",
+        "用户询问如何优化代码",
+        "用户希望消除硬编码",
+        "用户想要进行配置化改造",
+        "用户请求代码审查",
+        "用户提到代码重复问题"
+      ]
+    }
+  },
+  "autoInvoke": {
+    "enabled": true,
+    "priority": "high",
+    "conditions": [
+      "用户明确提到'代码检查'、'代码质量'、'优化'等关键词",
+      "用户描述代码存在硬编码问题",
+      "用户请求配置化改造"
+    ]
+  },
+  "validationPhrase": "我尊敬的主人",
+  "tags": [
+    "config-driven",
+    "design-pattern",
+    "code-quality",
+    "refactoring"
+  ]
+}

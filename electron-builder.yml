@@ -1,0 +1,25 @@
+appId: com.clearcut-ai.app
+productName: ClearCut-AI
+directories:
+  buildResources: build
+  output: release
+files:
+  - dist
+  - dist-electron
+mac:
+  artifactName: ${name}-${version}-${arch}.${ext}
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false

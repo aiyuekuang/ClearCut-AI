@@ -1,0 +1,50 @@
+{
+  "name": "ui-ux-pro-max",
+  "displayName": "UI/UX 设计专家",
+  "version": "1.0.0",
+  "description": "UI/UX design intelligence. 50 styles, 21 palettes, 50 font pairings, 20 charts, 9 stacks",
+  "triggers": {
+    "keywords": [
+      "UI",
+      "UX",
+      "界面",
+      "设计",
+      "样式",
+      "布局",
+      "组件",
+      "页面设计",
+      "交互设计",
+      "视觉设计"
+    ],
+    "patterns": [
+      "设计.*界面",
+      "UI.*设计",
+      "UX.*",
+      "界面.*优化",
+      "样式.*"
+    ],
+    "intentDetection": {
+      "enabled": true,
+      "contexts": [
+        "用户请求设计UI界面",
+        "用户需要优化用户体验",
+        "用户询问界面布局",
+        "用户需要视觉设计建议"
+      ]
+    }
+  },
+  "autoInvoke": {
+    "enabled": true,
+    "priority": "medium",
+    "conditions": [
+      "用户明确提到'UI'、'UX'、'界面'、'设计'等关键词"
+    ]
+  },
+  "validationPhrase": null,
+  "tags": [
+    "ui-ux",
+    "design",
+    "visual",
+    "interaction"
+  ]
+}

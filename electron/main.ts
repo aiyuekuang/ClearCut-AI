@@ -1,0 +1,77 @@
+// ClearCut-AI Electron Main Process
+// Manages window lifecycle, IPC registration, and Python sidecar
+
+import { app, BrowserWindow } from 'electron'
+import path from 'path'
+import { registerProviderIPC } from './ipc/provider'
+import { registerProjectIPC } from './ipc/project'
+import { registerSettingsIPC } from './ipc/settings'
+import { registerVideoIPC } from './ipc/video'
+import { registerTranscriptIPC } from './ipc/transcript'
+import { registerSubtitleIPC } from './ipc/subtitle'
+import { startSidecar, stopSidecar } from './sidecar'
+
+const isDev = !app.isPackaged
+
+let mainWindow: BrowserWindow | null = null
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 680,
+    title: 'ClearCut-AI',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 16 },
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173')
+    // mainWindow.webContents.openDevTools()
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+}
+
+// Register all IPC handlers
+function registerAllIPC() {
+  registerProviderIPC()
+  registerProjectIPC()
+  registerSettingsIPC()
+  registerVideoIPC()
+  registerTranscriptIPC()
+  registerSubtitleIPC()
+}
+
+app.whenReady().then(async () => {
+  registerAllIPC()
+  createWindow()
+
+  // Start Python sidecar (non-blocking, UI shows spinner while loading)
+  startSidecar().catch((e: unknown) => {
+    console.error('[main] Sidecar failed to start:', e)
+  })
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
+  })
+})
+
+app.on('window-all-closed', () => {
+  stopSidecar()
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
+})

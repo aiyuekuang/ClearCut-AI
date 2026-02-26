@@ -1,0 +1,20 @@
+{
+  "id": "karaoke-glow",
+  "name": "卡拉OK",
+  "engine": "ass",
+  "style": {
+    "fontname": "PingFang SC",
+    "fontsize": 24,
+    "bold": true,
+    "primary_color": "FFFFFF",
+    "outline_color": "1E3A5F",
+    "outline": 2,
+    "shadow": 0,
+    "alignment": 2,
+    "margin_v": 40
+  },
+  "animation": {
+    "type": "karaoke",
+    "highlight_color": "22D3EE"
+  }
+}

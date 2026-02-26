@@ -1,0 +1,45 @@
+{
+  "name": "skill-improvement",
+  "displayName": "技能更新与改进",
+  "version": "1.0.0",
+  "description": "用于持续改进技能文档，沉淀开发经验和最佳实践",
+  "triggers": {
+    "keywords": [
+      "更新技能",
+      "改进技能",
+      "技能文档",
+      "经验沉淀",
+      "最佳实践",
+      "skill",
+      "技能"
+    ],
+    "patterns": [
+      "更新.*技能",
+      "改进.*技能",
+      "技能.*文档",
+      "沉淀.*经验"
+    ],
+    "intentDetection": {
+      "enabled": true,
+      "contexts": [
+        "用户请求更新技能文档",
+        "用户希望改进现有技能",
+        "用户需要沉淀开发经验",
+        "用户要求检查技能文档质量"
+      ]
+    }
+  },
+  "autoInvoke": {
+    "enabled": false,
+    "priority": "low",
+    "conditions": [
+      "用户明确提到更新或改进技能"
+    ]
+  },
+  "validationPhrase": null,
+  "tags": [
+    "skill-improvement",
+    "documentation",
+    "best-practices"
+  ]
+}
