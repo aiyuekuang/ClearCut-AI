@@ -3,23 +3,19 @@
 // Uses -webkit-app-region for native drag behavior
 
 import { useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
 import { Scissors, Settings, LayoutTemplate } from 'lucide-react'
 import { Button, Select, Tooltip } from 'antd'
 import { useTemplateStore } from '@/stores/templateStore'
+import { useUIStore } from '@/stores/uiStore'
 
 export function Titlebar() {
-  const navigate = useNavigate()
-  const location = useLocation()
-
   const { templates, activeTemplateId, loaded, loadTemplates, setActiveTemplate } =
     useTemplateStore()
+  const { settingsOpen, openSettings } = useUIStore()
 
   useEffect(() => {
     if (!loaded) void loadTemplates()
   }, [loaded, loadTemplates])
-
-  const isSettings = location.pathname === '/settings'
 
   return (
     <header className="titlebar-drag flex h-11 shrink-0 items-center border-b border-border bg-surface px-3">
@@ -70,9 +66,9 @@ export function Titlebar() {
             type="text"
             size="small"
             icon={<Settings className="h-4 w-4" />}
-            onClick={() => navigate('/settings')}
+            onClick={openSettings}
             className={
-              isSettings
+              settingsOpen
                 ? '!text-brand !bg-brand/10'
                 : '!text-text-muted hover:!text-text hover:!bg-surface-2'
             }

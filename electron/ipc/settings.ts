@@ -33,7 +33,17 @@ function saveSettings(settings: Record<string, any>) {
 
 // Default settings values
 const DEFAULTS: Record<string, any> = {
-  // ASR
+  // AI engine mode
+  'ai.mode': 'local',
+
+  // AI capability slots (auto-set when ai.mode changes)
+  'ai.slots.filler': 'local-llm',
+  'ai.slots.sentence': 'local-llm',
+  'ai.slots.highlight': 'rules',
+  'ai.slots.analysis': 'local-llm',
+  'ai.slots.summary': 'local-llm',
+
+  // ASR (always local, independent of ai.mode)
   'asr.language': 'zh',
   'asr.engine': 'funasr',
   'asr.modelQuality': 'large',

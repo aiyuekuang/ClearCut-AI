@@ -65,6 +65,15 @@
 │  │  ┌──────────────────────────────────────────────┐  │  │
 │  │  │ 文本分析引擎 (填充词检测 / 重复检测)          │  │  │
 │  │  └──────────────────────────────────────────────┘  │  │
+│  │                                                    │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌───────────────────┐  │  │
+│  │  │ LLM 智能 │ │ 金句/高光│ │ 术语表纠错         │  │  │
+│  │  │ 断句     │ │ 检测     │ │                   │  │  │
+│  │  └──────────┘ └──────────┘ └───────────────────┘  │  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐  │  │
+│  │  │ 统计分析引擎 (语速/停顿/压缩比/填充词频次)    │  │  │
+│  │  └──────────────────────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -169,19 +178,39 @@ Electron Main Process
    ├── 句级转录
    └── 词级时间戳对齐 (stable-ts)
    ↓
-5. 智能分析
+5. 术语表纠错 (可选)
+   ├── 加载全局术语表 + 项目术语表
+   ├── 对转录文本做规则替换 (错误识别 → 正确术语)
+   └── 示例: "反应式" → "React"，"踢马楼" → "Terraform"
+   ↓
+6. LLM 智能断句 (可选，需 API Key)
+   ├── 将 ASR 逐字/短句输出重组为自然完整句子
+   ├── 按语义和呼吸节奏确定断句点
+   ├── 纠正同音字/多音字等 ASR 常见错误
+   └── 支持本地 LLM 和 API 两种模式
+   ↓
+7. 智能分析
    ├── 静音段标记 (来自 VAD)
    ├── 填充词检测 (正则匹配中文语气词)
    ├── 重复段检测 (文本相似度分析)
    ├── 废片识别 (不完整句子/口误)
+   ├── 金句/高光检测 (关键词 + 句式 + 语音特征 + LLM)
    └── LLM 内容分析 (可选，需 API Key)
    ↓
-6. 生成编辑建议
+8. 生成统计报告
+   ├── 语速分析：平均语速、语速波动图
+   ├── 停顿分析：总次数、平均时长、最长停顿
+   ├── 填充词频次 TOP 排名
+   ├── 压缩比：原始时长 vs 剪辑后时长
+   └── 金句标记列表
+   ↓
+9. 生成编辑建议
    ├── 自动标记建议删除的段落
    ├── 按类型分类 (静音/废话/重复/坏镜头)
+   ├── 金句用星标标记（建议保留）
    └── 置信度评分
    ↓
-7. 输出到编辑界面
+10. 输出到编辑界面
 ```
 
 ### 4.2 字幕生成管线
@@ -389,6 +418,7 @@ enum EditAction {
   KEEP = 'keep',
   DELETE = 'delete',
   MUTE = 'mute',
+  SPEED_UP = 'speed_up',           // 变速处理 (而非删除)
 }
 
 enum EditReason {
@@ -397,6 +427,7 @@ enum EditReason {
   REPETITION = 'repetition',
   BAD_TAKE = 'bad_take',
   MANUAL = 'manual',
+  HIGHLIGHT = 'highlight',          // 金句标记 (建议保留)
 }
 ```
 
@@ -469,6 +500,119 @@ interface SubtitleTemplate {
 }
 ```
 
+### 5.4 统计报告模型
+
+```typescript
+interface EditStatistics {
+  projectId: string;
+  generatedAt: Date;
+
+  // 基础信息
+  originalDuration: number;        // 原始时长 (秒)
+  editedDuration: number;          // 剪辑后时长 (秒)
+  compressionRatio: number;        // 压缩比 (%)
+
+  // 语速分析
+  averageSpeechRate: number;       // 平均语速 (字/分钟)
+  speechRateTimeline: Array<{      // 语速随时间变化
+    time: number;
+    rate: number;
+  }>;
+
+  // 停顿分析
+  totalPauses: number;             // 总停顿次数
+  averagePauseDuration: number;    // 平均停顿时长 (秒)
+  longestPause: {                  // 最长停顿
+    startTime: number;
+    duration: number;
+  };
+
+  // 填充词统计
+  fillerWordStats: Array<{
+    word: string;                  // 填充词
+    count: number;                 // 出现次数
+  }>;
+
+  // 重复段统计
+  totalRepetitions: number;        // 总重复次数
+  repetitionDuration: number;      // 重复段总时长 (秒)
+
+  // 剪辑段分类统计
+  deletedSegments: {
+    silence: number;
+    fillerWord: number;
+    repetition: number;
+    badTake: number;
+    manual: number;
+  };
+
+  // 金句列表
+  highlights: Array<{
+    startTime: number;
+    endTime: number;
+    text: string;
+    score: number;                 // 金句评分 0-1
+    reason: string;                // 识别原因
+  }>;
+}
+```
+
+### 5.5 术语表模型
+
+```typescript
+interface GlossaryEntry {
+  id: string;
+  wrongText: string;               // ASR 错误识别文本
+  correctText: string;             // 正确术语
+  category?: string;               // 分类标签 (技术/医学/法律...)
+  enabled: boolean;
+}
+
+interface Glossary {
+  id: string;
+  name: string;                    // 术语表名称
+  scope: 'global' | 'project';    // 作用域
+  projectId?: string;              // 项目级术语表关联
+  entries: GlossaryEntry[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### 5.6 批量处理模型
+
+```typescript
+interface BatchJob {
+  id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  videoFiles: string[];            // 待处理视频列表
+  strategy: BatchStrategy;         // 批量处理策略
+  progress: number;                // 总进度 0-100
+  currentFileIndex: number;        // 当前处理文件索引
+  results: BatchResult[];
+  createdAt: Date;
+}
+
+interface BatchStrategy {
+  removeSilence: boolean;          // 去静音
+  silenceMode: 'delete' | 'speed_up';  // 静音处理模式
+  speedUpRate?: number;            // 变速倍率 (仅变速模式)
+  removeFillers: boolean;          // 去废话
+  generateSubtitles: boolean;      // 生成字幕
+  subtitleTemplateId?: string;     // 字幕模板
+  outputFormat: string;            // 输出格式
+  outputDirectory: string;         // 输出目录
+}
+
+interface BatchResult {
+  videoFile: string;
+  status: 'completed' | 'failed';
+  outputFile?: string;
+  statistics?: EditStatistics;     // 统计报告
+  error?: string;
+}
+```
+
 **预制模板列表**:
 
 | 模板 ID | 名称 | 样式 | 动画 | 引擎 |
@@ -517,12 +661,16 @@ ClearCut-AI/
 │   ├── pages/                     # 页面
 │   │   ├── home/                  # 首页/项目管理
 │   │   ├── editor/                # 编辑器主页
+│   │   ├── batch/                 # 批量处理页面
 │   │   ├── export/                # 导出页面
 │   │   └── settings/              # 设置页面
 │   ├── stores/                    # Zustand 状态
 │   │   ├── projectStore.ts        # 项目状态
 │   │   ├── transcriptStore.ts     # 转录状态
 │   │   ├── subtitleStore.ts       # 字幕状态
+│   │   ├── statisticsStore.ts     # 统计报告状态
+│   │   ├── glossaryStore.ts       # 术语表状态
+│   │   ├── batchStore.ts          # 批量处理状态
 │   │   └── settingsStore.ts       # 设置状态
 │   ├── hooks/                     # 自定义 Hooks
 │   ├── services/                  # API 调用服务
@@ -540,6 +688,10 @@ ClearCut-AI/
 │   │   ├── timestamp_service.py   # stable-ts 词级时间戳
 │   │   ├── filler_detector.py     # 填充词检测
 │   │   ├── repeat_detector.py     # 重复段检测
+│   │   ├── highlight_detector.py  # 金句/高光检测
+│   │   ├── glossary_service.py    # 术语表纠错
+│   │   ├── sentence_optimizer.py  # LLM 智能断句
+│   │   ├── statistics_service.py  # 统计分析
 │   │   ├── llm_analyzer.py        # LLM 分析
 │   │   └── subtitle_service.py    # 字幕生成服务
 │   │       ├── generator.py       # 字幕文件生成 (pysubs2)
@@ -723,18 +875,24 @@ pydantic==2.10.*               # MIT
 ### v1.5
 - 填充词自动检测与去除
 - 重复段检测
+- **静音段变速处理** (除删除外支持 2x/4x/8x 加速)
+- **智能边界缓冲** (前后保留可调缓冲，避免生硬剪辑)
+- **剪辑统计面板** (语速/停顿/压缩比/填充词频次)
 - 字幕烧录到视频 (FFmpeg ass 滤镜)
 - 时间线导出 (Premiere XML / FCPXML / EDL)
 - **字幕位置/动画精细调整**
 - **渐入渐出动画** (ASS `\fad` 标签)
 
 ### v2.0
-- LLM 智能分析 (废话/坏镜头检测)
+- **LLM 智能断句** (语义重组字幕句子)
+- **自定义术语表** (ASR 纠错映射)
+- **金句/高光检测** (关键词 + 句式 + 语音特征 + LLM)
+- **批量处理** (队列管理 + 统一策略 + 批量导出)
+- LLM 智能分析 (废话/坏镜头检测 + 内容摘要)
 - **TikTok 风格动画字幕** (pycaps 引擎)
 - **8+ 预制模板** (pop/bounce/slide/typewriter)
 - **自定义模板系统** (用户创建/导入/分享)
 - 智能缩放/动态裁剪
-- 批量处理
 
 ### v3.0
 - 多说话人识别 + 说话人字幕分色
@@ -753,7 +911,11 @@ pydantic==2.10.*               # MIT
 |------|-------|----------|
 | [AutoCut](https://github.com/mli/autocut) | 7.5k | 文本编辑视频的交互范式参考 |
 | [FunClip](https://github.com/modelscope/FunClip) | 5.3k | FunASR 集成方式参考 |
-| [Auto-Editor](https://github.com/WyattBlue/auto-editor) | 4k | 静音检测 + FFmpeg 导出管线参考 |
+| [Auto-Editor](https://github.com/WyattBlue/auto-editor) | 4k | 静音检测 + 变速处理 + NLE 导出参考 |
+| [VideoCaptioner](https://github.com/WEIFENG2333/VideoCaptioner) | 13.3k | LLM 智能断句 + 批量处理参考 |
+| [VideoLingo](https://github.com/Huanshere/VideoLingo) | 16k | 术语表 + Netflix 字幕标准参考 |
+| [video-cutter](https://github.com/yzz05220-rgb/video-cutter) | 8 | 金句检测 + 统计分析 + 边界缓冲参考 |
+| [AudioNotes](https://github.com/harry0703/AudioNotes) | 2k | FunASR + LLM 内容摘要技术参考 |
 
 ### 11.2 字幕技术参考
 

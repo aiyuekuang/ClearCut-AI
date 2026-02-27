@@ -110,6 +110,16 @@ export const settingsSections: SettingSection[] = [
   },
 
   // ─────────────────────────────────────────
+  // AI 引擎（统一入口）
+  // ─────────────────────────────────────────
+  {
+    id: 'ai-engine',
+    title: 'AI 引擎',
+    icon: 'brain',
+    items: [], // handled by AIEngineSettings component
+  },
+
+  // ─────────────────────────────────────────
   // 语音识别
   // ─────────────────────────────────────────
   {
@@ -285,16 +295,6 @@ export const settingsSections: SettingSection[] = [
         },
       },
     ],
-  },
-
-  // ─────────────────────────────────────────
-  // AI 分析（独立组件）
-  // ─────────────────────────────────────────
-  {
-    id: 'ai',
-    title: 'AI 分析',
-    icon: 'brain',
-    items: [], // handled by AISettings component
   },
 
   // ─────────────────────────────────────────

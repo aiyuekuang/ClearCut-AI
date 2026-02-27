@@ -29,11 +29,4 @@ export const routes: RouteConfig[] = [
     icon: 'scissors',
     component: lazy(() => import('@/pages/editor/EditorPage')),
   },
-  {
-    path: '/settings',
-    name: '设置',
-    icon: 'settings',
-    component: lazy(() => import('@/pages/settings/SettingsPage')),
-    showInNav: true,
-  },
 ]

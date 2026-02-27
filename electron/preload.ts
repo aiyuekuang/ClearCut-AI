@@ -2,7 +2,7 @@
 // Uses contextBridge to maintain process isolation
 
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ProviderAuth } from '../src/types/provider'
+import type { ProviderAuth, OAuthStatusEvent } from '../src/types/provider'
 
 const providerAPI = {
   list: () => ipcRenderer.invoke('provider:list'),
@@ -80,7 +80,27 @@ const llmAPI = {
   },
 }
 
+const oauthAPI = {
+  start: (providerId: string) => ipcRenderer.invoke('oauth:start', providerId),
+  cancel: (providerId: string) => ipcRenderer.invoke('oauth:cancel', providerId),
+  onStatus: (callback: (event: OAuthStatusEvent) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, data: OAuthStatusEvent) => callback(data)
+    ipcRenderer.on('oauth:status', handler)
+    return () => ipcRenderer.removeListener('oauth:status', handler)
+  },
+}
+
+const appAPI = {
+  openExternal: (url: string) => ipcRenderer.invoke('app:open-external', url),
+  onSidecarError: (callback: (msg: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, msg: string) => callback(msg)
+    ipcRenderer.on('app:sidecar-error', handler)
+    return () => ipcRenderer.removeListener('app:sidecar-error', handler)
+  },
+}
+
 contextBridge.exposeInMainWorld('api', {
+  app: appAPI,
   provider: providerAPI,
   project: projectAPI,
   settings: settingsAPI,
@@ -88,4 +108,5 @@ contextBridge.exposeInMainWorld('api', {
   transcript: transcriptAPI,
   subtitle: subtitleAPI,
   llm: llmAPI,
+  oauth: oauthAPI,
 })

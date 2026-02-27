@@ -2,14 +2,13 @@
 // Only shows routes with showInNav: true
 
 import { NavLink } from 'react-router-dom'
-import { Home, Settings } from 'lucide-react'
+import { Home } from 'lucide-react'
 import { Tooltip } from 'antd'
 import { routes } from '@/config/routes.config'
 import { cn } from '@/lib/utils'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   home: Home,
-  settings: Settings,
 }
 
 export function Sidebar() {

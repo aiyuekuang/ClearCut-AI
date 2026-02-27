@@ -15,7 +15,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import transcribe, analyze, subtitle, health
+from routers import transcribe, analyze, subtitle, health, cut, llm
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,6 +53,8 @@ app.include_router(health.router, tags=["health"])
 app.include_router(transcribe.router, tags=["transcribe"])
 app.include_router(subtitle.router, tags=["subtitle"])
 app.include_router(analyze.router, tags=["analyze"])
+app.include_router(cut.router)
+app.include_router(llm.router, tags=["llm"])
 
 
 if __name__ == "__main__":

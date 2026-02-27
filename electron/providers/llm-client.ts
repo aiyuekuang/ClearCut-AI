@@ -2,7 +2,7 @@
 // Used for AI analysis features in ClearCut-AI
 
 import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
+import { sidecarRequest } from '../sidecar'
 import type { ChatMessage, ChatOptions, ChatResponse } from '../../src/types/provider'
 
 interface LLMClientConfig {
@@ -56,40 +56,48 @@ function createAnthropicClient(config: LLMClientConfig): LLMClient {
   }
 }
 
-function createOpenAICompatibleClient(config: LLMClientConfig): LLMClient {
-  const client = new OpenAI({
-    apiKey: config.apiKey,
-    baseURL: config.baseUrl,
+// OpenAI-compatible 通过 Python sidecar 代理请求
+// Electron 主进程无法直接发起外部 HTTPS 请求（ERR_NETWORK_IO_SUSPENDED），
+// 转由本地 sidecar（Python）代理，sidecar 无此限制。
+async function openaiCompatChat(
+  config: LLMClientConfig,
+  messages: ChatMessage[],
+  options?: Partial<ChatOptions>,
+): Promise<ChatResponse> {
+  const model = options?.model || config.model
+  console.log('[LLM:openai-compat] via sidecar proxy, model=', model, 'baseUrl=', config.baseUrl)
+
+  const result = await sidecarRequest<{
+    content: string
+    model: string
+    input_tokens?: number
+    output_tokens?: number
+  }>('POST', '/llm/chat', {
+    base_url: config.baseUrl,
+    api_key: config.apiKey,
+    model,
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    max_tokens: options?.maxTokens || 4096,
+    temperature: options?.temperature ?? 0.7,
   })
 
+  console.log('[LLM:openai-compat] sidecar 响应 model=', result.model, 'length=', result.content.length)
+  return {
+    content: result.content,
+    model: result.model,
+    usage: result.input_tokens !== undefined
+      ? { inputTokens: result.input_tokens, outputTokens: result.output_tokens ?? 0 }
+      : undefined,
+  }
+}
+
+function createOpenAICompatibleClient(config: LLMClientConfig): LLMClient {
   return {
     async chat(messages, options) {
-      const response = await client.chat.completions.create({
-        model: options?.model || config.model,
-        max_tokens: options?.maxTokens || 4096,
-        temperature: options?.temperature,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      })
-
-      const choice = response.choices[0]
-      return {
-        content: choice?.message?.content || '',
-        model: response.model,
-        usage: response.usage
-          ? {
-              inputTokens: response.usage.prompt_tokens,
-              outputTokens: response.usage.completion_tokens || 0,
-            }
-          : undefined,
-      }
+      return openaiCompatChat(config, messages, options)
     },
-
     async testConnection() {
-      await client.chat.completions.create({
-        model: config.model,
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'hi' }],
-      })
+      await openaiCompatChat(config, [{ role: 'user', content: 'hi' }], { maxTokens: 10 })
     },
   }
 }

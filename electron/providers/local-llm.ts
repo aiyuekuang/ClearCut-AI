@@ -209,13 +209,26 @@ export async function detectFillersLocal(
   })
 
   const wordList = words.map((w, i) => `${i}. ${w.word}`).join('\n')
+  console.log('[local-llm] 开始推理, 词数=', words.length, 'contextSize=4096')
   const response = await session.prompt(`词语列表：\n${wordList}`, {
     grammar,
-    maxTokens: 512,
+    maxTokens: 2048,
     temperature: 0.1,
   })
 
-  const parsed = JSON.parse(response) as { indices?: unknown }
+  console.log('[local-llm] 原始响应=', JSON.stringify(response))
+
+  if (!response?.trim()) {
+    console.warn('[local-llm] 模型输出为空，返回空结果')
+    return []
+  }
+
+  // Qwen3 may wrap output in <think>...</think>, extract JSON part
+  const jsonMatch = response.match(/\{[\s\S]*\}/)
+  const jsonStr = jsonMatch ? jsonMatch[0] : response.trim()
+  console.log('[local-llm] 解析 JSON=', jsonStr.slice(0, 200))
+
+  const parsed = JSON.parse(jsonStr) as { indices?: unknown }
   if (!Array.isArray(parsed.indices)) return []
 
   return parsed.indices.filter(

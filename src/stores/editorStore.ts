@@ -1,5 +1,5 @@
 // Editor store - core state for the video editing session
-// Manages: transcript segments, deleted set, cursor position, playback
+// Manages: transcript segments, deleted set, cursor position, playback, undo/redo
 
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
@@ -41,6 +41,10 @@ type EditorState = {
   isPlaying: boolean
   activeSegmentId: string | null
 
+  // History (undo/redo)
+  past: EditSegment[][]
+  future: EditSegment[][]
+
   // Actions
   setProject: (projectId: string, videoPath: string) => void
   setAudioPath: (path: string) => void
@@ -61,6 +65,11 @@ type EditorState = {
 
   updateWord: (id: string, word: string) => void
   replaceWords: (findText: string, replaceText: string) => number
+
+  undo: () => void
+  redo: () => void
+  canUndo: () => boolean
+  canRedo: () => boolean
 
   setCurrentTime: (time: number) => void
   setIsPlaying: (playing: boolean) => void
@@ -83,6 +92,21 @@ function buildSegments(words: WordSegment[]): EditSegment[] {
   }))
 }
 
+// Deep-clone segments to a plain array (safe to call on immer drafts)
+function snapshot(segments: EditSegment[]): EditSegment[] {
+  return segments.map((seg) => ({
+    id: seg.id,
+    word: seg.word,
+    start: seg.start,
+    end: seg.end,
+    confidence: seg.confidence,
+    status: seg.status,
+    isSentenceEnd: seg.isSentenceEnd,
+  }))
+}
+
+const HISTORY_LIMIT = 50
+
 export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
     projectId: null,
@@ -103,11 +127,16 @@ export const useEditorStore = create<EditorState>()(
     isPlaying: false,
     activeSegmentId: null,
 
+    past: [],
+    future: [],
+
     setProject: (projectId, videoPath) =>
       set((s) => {
         s.projectId = projectId
         s.videoPath = videoPath
         s.segments = []
+        s.past = []
+        s.future = []
         s.transcript = { jobId: null, status: 'idle', progress: 0, error: null, language: 'zh' }
       }),
 
@@ -126,6 +155,8 @@ export const useEditorStore = create<EditorState>()(
     setTranscriptResult: (words, language) =>
       set((s) => {
         s.segments = buildSegments(words)
+        s.past = []
+        s.future = []
         s.transcript.status = 'done'
         s.transcript.progress = 100
         s.transcript.language = language
@@ -133,6 +164,9 @@ export const useEditorStore = create<EditorState>()(
 
     toggleSegment: (id) =>
       set((s) => {
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.future = []
         const seg = s.segments.find((x: EditSegment) => x.id === id)
         if (!seg) return
         seg.status = seg.status === 'kept' ? 'deleted' : 'kept'
@@ -140,40 +174,57 @@ export const useEditorStore = create<EditorState>()(
 
     deleteSegments: (ids) =>
       set((s) => {
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.future = []
         const idSet = new Set(ids)
         s.segments.forEach((x: EditSegment) => { if (idSet.has(x.id)) x.status = 'deleted' })
       }),
 
     restoreSegments: (ids) =>
       set((s) => {
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.future = []
         const idSet = new Set(ids)
         s.segments.forEach((x: EditSegment) => { if (idSet.has(x.id)) x.status = 'kept' })
       }),
 
     markAsSilence: (ids) =>
       set((s) => {
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.future = []
         const idSet = new Set(ids)
         s.segments.forEach((x: EditSegment) => { if (idSet.has(x.id)) x.status = 'silence' })
       }),
 
     markAsFiller: (ids) =>
       set((s) => {
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.future = []
         const idSet = new Set(ids)
         s.segments.forEach((x: EditSegment) => { if (idSet.has(x.id)) x.status = 'filler' })
       }),
 
     restoreAllDeleted: () =>
       set((s) => {
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.future = []
         s.segments.forEach((x: EditSegment) => { if (x.status !== 'kept') x.status = 'kept' })
       }),
 
     deleteAllSilence: () =>
       set((s) => {
+        // Note: silence → deleted happens after markAsSilence; don't double-push history
         s.segments.forEach((x: EditSegment) => { if (x.status === 'silence') x.status = 'deleted' })
       }),
 
     deleteAllFillers: () =>
       set((s) => {
+        // Note: filler → deleted happens after markAsFiller; don't double-push history
         s.segments.forEach((x: EditSegment) => { if (x.status === 'filler') x.status = 'deleted' })
       }),
 
@@ -186,6 +237,9 @@ export const useEditorStore = create<EditorState>()(
     replaceWords: (findText, replaceText) => {
       const count = get().segments.filter((s) => s.word.includes(findText)).length
       set((s) => {
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.future = []
         s.segments.forEach((seg: EditSegment) => {
           if (seg.word.includes(findText)) {
             seg.word = seg.word.split(findText).join(replaceText)
@@ -194,6 +248,29 @@ export const useEditorStore = create<EditorState>()(
       })
       return count
     },
+
+    undo: () =>
+      set((s) => {
+        const prev = s.past[s.past.length - 1]
+        if (!prev) return
+        s.past.pop()
+        s.future.push(snapshot(s.segments))
+        if (s.future.length > HISTORY_LIMIT) s.future.shift()
+        s.segments = prev
+      }),
+
+    redo: () =>
+      set((s) => {
+        const next = s.future[s.future.length - 1]
+        if (!next) return
+        s.future.pop()
+        s.past.push(snapshot(s.segments))
+        if (s.past.length > HISTORY_LIMIT) s.past.shift()
+        s.segments = next
+      }),
+
+    canUndo: () => get().past.length > 0,
+    canRedo: () => get().future.length > 0,
 
     setCurrentTime: (time) => set((s) => { s.currentTime = time }),
     setIsPlaying: (playing) => set((s) => { s.isPlaying = playing }),

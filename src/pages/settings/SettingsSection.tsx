@@ -192,7 +192,8 @@ function TextInput({ item, value, onChange }: ItemProps) {
 }
 
 function PathInput({ item, value, onChange }: ItemProps) {
-  const placeholder = (item.props?.placeholder as string) ?? '选择目录...'
+  const defaultHint = (item.props?.placeholder as string) ?? '留空使用默认路径'
+  const currentPath = (value as string) ?? ''
 
   const handleBrowse = async () => {
     try {
@@ -204,23 +205,53 @@ function PathInput({ item, value, onChange }: ItemProps) {
   }
 
   return (
-    <div className="flex gap-1.5">
-      <Tooltip title={placeholder} placement="topLeft" mouseEnterDelay={0.8}>
-        <Input
-          size="small"
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="flex-1 min-w-0 font-mono text-[11px]"
-        />
-      </Tooltip>
-      <Button
-        size="small"
-        icon={<FolderOpen className="h-3.5 w-3.5" />}
-        onClick={() => void handleBrowse()}
-        className="shrink-0 !px-2"
-        title="浏览..."
-      />
+    <div className="space-y-1.5">
+      <div className="flex gap-1.5">
+        {/* Read-only display, click folder to change */}
+        <div
+          className="flex flex-1 min-w-0 cursor-pointer items-center rounded-[6px] border border-border bg-surface px-2 py-1 text-[11px] font-mono hover:border-brand/50 transition-colors"
+          onClick={() => void handleBrowse()}
+          title={currentPath || defaultHint}
+        >
+          {currentPath ? (
+            /* Show path end (most specific part) by using text-overflow on a reversed container */
+            <span className="block w-full overflow-hidden whitespace-nowrap text-text-secondary"
+              style={{ direction: 'rtl', textAlign: 'left', unicodeBidi: 'plaintext' }}>
+              {currentPath}
+            </span>
+          ) : (
+            <span className="text-text-muted">选择目录...</span>
+          )}
+        </div>
+
+        {/* Clear button - only when a value is set */}
+        {currentPath && (
+          <Tooltip title="清除（使用默认路径）" mouseEnterDelay={0.5}>
+            <Button
+              size="small"
+              icon={<X className="h-3 w-3" />}
+              onClick={() => onChange('')}
+              className="shrink-0 !px-2 !text-text-muted hover:!text-text"
+            />
+          </Tooltip>
+        )}
+
+        <Tooltip title="选择目录" mouseEnterDelay={0.5}>
+          <Button
+            size="small"
+            icon={<FolderOpen className="h-3.5 w-3.5" />}
+            onClick={() => void handleBrowse()}
+            className="shrink-0 !px-2"
+          />
+        </Tooltip>
+      </div>
+
+      {/* Default path hint shown below when empty */}
+      {!currentPath && (
+        <p className="text-[11px] text-text-muted leading-relaxed pl-0.5">
+          {defaultHint}
+        </p>
+      )}
     </div>
   )
 }

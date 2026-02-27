@@ -1,12 +1,27 @@
 // Transcript IPC handlers
 // Proxies ASR requests to the Python sidecar
 
-import { ipcMain } from 'electron'
+import { ipcMain, app } from 'electron'
+import * as fs from 'fs'
+import * as path from 'path'
 import { sidecarRequest, isSidecarReady } from '../sidecar'
 import { getActiveProvider, getProviderAuth } from '../providers/store'
 import { getProviderById } from '../providers/registry'
 import { createLLMClient } from '../providers/llm-client'
 import { isModelDownloaded, detectFillersLocal } from '../providers/local-llm'
+
+// Load settings synchronously for slot routing
+function loadSettingsSync(): Record<string, unknown> {
+  try {
+    const settingsFile = path.join(app.getPath('userData'), 'config', 'settings.json')
+    if (fs.existsSync(settingsFile)) {
+      return JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
+    }
+  } catch {
+    // ignore
+  }
+  return {}
+}
 
 const DEFAULT_FILLER_PROMPT = `你是一个视频剪辑助手，帮助口播视频创作者去除废话。
 
@@ -131,6 +146,7 @@ export function registerTranscriptIPC() {
   )
 
   // LLM-based filler word detection
+  // Reads ai.slots.filler setting to determine which method to use
   ipcMain.handle(
     'transcript:detect-fillers-llm',
     async (
@@ -141,54 +157,102 @@ export function registerTranscriptIPC() {
       },
     ) => {
       try {
-        // Priority 1: built-in local model (no API key needed)
-        if (isModelDownloaded()) {
-          const indices = await detectFillersLocal(params.words, params.prompt)
-          return { ok: true, fillerIndices: indices, source: 'local' }
-        }
+        // Read the configured slot method
+        const settings = loadSettingsSync()
+        const method = (settings['ai.slots.filler'] as string) || 'local-llm'
+        console.log('[IPC:detect-fillers-llm] method=', method, 'words=', params.words.length)
 
-        // Priority 2: configured API provider
-        const active = getActiveProvider()
-        if (!active) return { ok: false, error: '请先下载内置模型或配置 AI 提供商' }
-
-        const auth = getProviderAuth(active.providerId)
-        if (!auth?.apiKey) return { ok: false, error: 'API Key 未配置' }
-
-        const providerConfig = getProviderById(active.providerId)
-        if (!providerConfig) return { ok: false, error: '提供商配置不存在' }
-
-        const client = createLLMClient({
-          sdkType: providerConfig.sdkType,
-          apiKey: auth.apiKey,
-          baseUrl: auth.baseUrl || providerConfig.baseUrl,
-          model: active.model,
-        })
-
-        const wordList = params.words.map((w, i) => `${i}. ${w.word}`).join('\n')
-        const systemPrompt = params.prompt?.trim() || DEFAULT_FILLER_PROMPT
-
-        const response = await client.chat(
-          [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `词语列表：\n${wordList}` },
-          ],
-          { temperature: 0.1, maxTokens: 1024 },
-        )
-
-        const content = response.content.trim()
-        const jsonMatch = content.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) return { ok: false, error: `模型响应格式错误: ${content.slice(0, 100)}` }
-
-        const parsed = JSON.parse(jsonMatch[0]) as { indices?: unknown }
-        const indices = Array.isArray(parsed.indices)
-          ? parsed.indices.filter(
-              (i): i is number =>
-                typeof i === 'number' && i >= 0 && i < params.words.length,
+        // Route to the appropriate implementation
+        switch (method) {
+          case 'dictionary': {
+            console.log('[IPC:detect-fillers-llm] => 字典模式')
+            // Delegate to the dictionary-based detection (sidecar)
+            if (!isSidecarReady()) return { ok: false, error: 'AI 引擎未就绪' }
+            const fillerList = settings['edit.fillerWords'] as string[] | undefined
+            const result = await sidecarRequest<{ filler_indices: number[] }>(
+              'POST',
+              '/transcribe/detect-fillers',
+              { words: params.words, filler_list: fillerList },
             )
-          : []
+            console.log('[IPC:detect-fillers-llm] 字典结果=', result)
+            return { ok: true, fillerIndices: result.filler_indices, source: 'dictionary' }
+          }
 
-        return { ok: true, fillerIndices: indices }
+          case 'local-llm': {
+            console.log('[IPC:detect-fillers-llm] => 本地 LLM 模式, 模型已下载=', isModelDownloaded())
+            if (!isModelDownloaded()) {
+              return { ok: false, error: '本地模型未下载，请前往设置 → AI 引擎下载' }
+            }
+            const indices = await detectFillersLocal(params.words, params.prompt)
+            console.log('[IPC:detect-fillers-llm] 本地 LLM 结果 indices=', indices)
+            return { ok: true, fillerIndices: indices, source: 'local' }
+          }
+
+          case 'api-llm': {
+            const active = getActiveProvider()
+            console.log('[IPC:detect-fillers-llm] => API LLM 模式, activeProvider=', active)
+            if (!active) return { ok: false, error: '请先配置 API 提供商' }
+
+            const auth = getProviderAuth(active.providerId)
+            console.log('[IPC:detect-fillers-llm] auth=', {
+              providerId: auth?.providerId,
+              mode: auth?.mode,
+              hasApiKey: !!auth?.apiKey,
+              hasAccessToken: !!auth?.accessToken,
+              baseUrl: auth?.baseUrl,
+            })
+            // OAuth 提供商使用 accessToken，API Key 提供商使用 apiKey
+            const token = auth?.apiKey || auth?.accessToken
+            if (!token) {
+              console.error('[IPC:detect-fillers-llm] ❌ 未找到可用 token，返回错误')
+              return { ok: false, error: 'API Key / AccessToken 未配置' }
+            }
+
+            const providerConfig = getProviderById(active.providerId)
+            console.log('[IPC:detect-fillers-llm] providerConfig=', providerConfig ? { id: providerConfig.id, sdkType: providerConfig.sdkType, baseUrl: providerConfig.baseUrl } : null)
+            if (!providerConfig) return { ok: false, error: '提供商配置不存在' }
+
+            const client = createLLMClient({
+              sdkType: providerConfig.sdkType,
+              apiKey: token,
+              baseUrl: auth.baseUrl || providerConfig.baseUrl,
+              model: active.model,
+            })
+
+            const wordList = params.words.map((w, i) => `${i}. ${w.word}`).join('\n')
+            const systemPrompt = params.prompt?.trim() || DEFAULT_FILLER_PROMPT
+            console.log('[IPC:detect-fillers-llm] 调用 API, model=', active.model, 'provider=', active.providerId)
+
+            const response = await client.chat(
+              [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `词语列表：\n${wordList}` },
+              ],
+              { temperature: 0.1, maxTokens: 1024 },
+            )
+
+            const content = response.content.trim()
+            console.log('[IPC:detect-fillers-llm] API 原始响应=', content.slice(0, 200))
+            const jsonMatch = content.match(/\{[\s\S]*\}/)
+            if (!jsonMatch) return { ok: false, error: `模型响应格式错误: ${content.slice(0, 100)}` }
+
+            const parsed = JSON.parse(jsonMatch[0]) as { indices?: unknown }
+            const indices = Array.isArray(parsed.indices)
+              ? parsed.indices.filter(
+                  (i): i is number =>
+                    typeof i === 'number' && i >= 0 && i < params.words.length,
+                )
+              : []
+
+            console.log('[IPC:detect-fillers-llm] API 解析结果 indices=', indices)
+            return { ok: true, fillerIndices: indices, source: 'api' }
+          }
+
+          default:
+            return { ok: false, error: `未知的废话检测方法: ${method}` }
+        }
       } catch (e: unknown) {
+        console.error('[IPC:detect-fillers-llm] 异常:', e)
         return { ok: false, error: e instanceof Error ? e.message : String(e) }
       }
     },

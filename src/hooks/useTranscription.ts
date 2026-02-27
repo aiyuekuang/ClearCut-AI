@@ -33,14 +33,23 @@ export function useTranscription() {
           if (res.status === 'processing') {
             setTranscriptStatus('transcribing', res.progress ?? 50)
             pollTimerRef.current = setTimeout(check, POLL_INTERVAL_MS)
-          } else if (res.status === 'done' && res.result) {
-            console.log('[transcription] DONE, words=', res.result.words?.length)
+          } else if (res.status === 'done') {
             stopPolling()
-            setTranscriptResult(res.result.words as import('../../electron/ipc/transcript').WordSegment[], res.result.language)
-            // Persist to disk so re-opening this project skips ASR
-            const { projectId } = useEditorStore.getState()
-            if (projectId) {
-              void window.api.project.saveTranscript(projectId, res.result)
+            if (res.result?.words?.length) {
+              console.log('[transcription] DONE, words=', res.result.words.length)
+              setTranscriptResult(
+                res.result.words as import('../../electron/ipc/transcript').WordSegment[],
+                res.result.language,
+              )
+              // Persist to disk so re-opening this project skips ASR
+              const { projectId } = useEditorStore.getState()
+              if (projectId) {
+                void window.api.project.saveTranscript(projectId, res.result)
+              }
+            } else {
+              // done but empty — treat as error rather than infinite poll
+              console.error('[transcription] done but no words in result')
+              setTranscriptStatus('error', 0, '转录完成但未识别到语音内容，请检查音频是否正常')
             }
           } else if (res.status === 'error') {
             console.error('[transcription] job error:', res.error)
@@ -64,6 +73,7 @@ export function useTranscription() {
 
   const startTranscription = useCallback(
     async (videoPath: string, projectId: string) => {
+      stopPolling() // cancel any existing poll before starting a new one
       console.log('[transcription] START videoPath=', videoPath, 'projectId=', projectId)
       try {
         // 1. Get video metadata
@@ -115,7 +125,7 @@ export function useTranscription() {
         setTranscriptStatus('error', 0, e instanceof Error ? e.message : '未知错误')
       }
     },
-    [setTranscriptStatus, setVideoDuration, setAudioPath, setJobId, pollStatus],
+    [setTranscriptStatus, setVideoDuration, setAudioPath, setJobId, pollStatus, stopPolling],
   )
 
   const detectSilence = useCallback(async (audioPath: string) => {
@@ -130,23 +140,28 @@ export function useTranscription() {
 
   const detectFillers = useCallback(async (words: unknown[]) => {
     const settings = await window.api.settings.getAll()
+    const method = (settings['ai.slots.filler'] as string) || 'local-llm'
+    console.log('[detectFillers] 开始，词数=', words.length, 'slot=', method)
 
-    // If an AI provider is configured, use LLM-based detection
-    const activeProvider = await window.api.provider.getActive()
-    if (activeProvider) {
+    // Use LLM unless explicitly set to dictionary
+    if (method !== 'dictionary') {
+      console.log('[detectFillers] 走 LLM 路径 (method=', method, ')')
       const res = await window.api.transcript.detectFillersLLM({
         words,
         prompt: settings['edit.fillerPrompt'] || undefined,
       })
+      console.log('[detectFillers] LLM 结果=', res)
       if (res.ok) return res.fillerIndices
       console.warn('[detectFillers] LLM 检测失败，降级为字典匹配:', res.error)
     }
 
     // Fallback: dictionary-based detection
+    console.log('[detectFillers] 走字典路径')
     const res = await window.api.transcript.detectFillers({
       words,
       fillerList: settings['edit.fillerWords'],
     })
+    console.log('[detectFillers] 字典结果=', res)
     return res.ok ? res.fillerIndices : []
   }, [])
 

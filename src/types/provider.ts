@@ -1,6 +1,6 @@
 // LLM Provider type definitions for ClearCut-AI
 
-export type AuthMode = 'api_key'
+export type AuthMode = 'api_key' | 'oauth'
 
 export interface ProviderConfig {
   id: string
@@ -14,6 +14,10 @@ export interface ProviderConfig {
   sdkType: 'anthropic' | 'openai-compatible'
   /** Provider icon identifier */
   icon?: string
+  /** URL to purchase / manage API keys */
+  apiKeyUrl?: string
+  /** URL for web-based login / OAuth flow */
+  loginUrl?: string
 }
 
 export interface ModelInfo {
@@ -27,7 +31,20 @@ export interface ProviderAuth {
   mode: AuthMode
   apiKey?: string
   baseUrl?: string
+  /** OAuth tokens */
+  accessToken?: string
+  refreshToken?: string
+  expiresAt?: number
 }
+
+/** OAuth 状态事件（主进程 → 渲染进程推送） */
+export type OAuthStatus =
+  | { status: 'device_code'; info: { userCode: string; verificationUri: string; expiresIn: number } }
+  | { status: 'polling' }
+  | { status: 'success' }
+  | { status: 'error'; error: string }
+
+export type OAuthStatusEvent = { providerId: string } & OAuthStatus
 
 export interface ProviderStatus {
   providerId: string
@@ -72,4 +89,10 @@ export interface ProviderAPI {
   setDefaultModel(providerId: string, modelId: string): Promise<{ ok: boolean }>
   setActive(providerId: string, model: string): Promise<{ ok: boolean }>
   getActive(): Promise<{ providerId: string; model: string } | null>
+}
+
+export interface OAuthAPI {
+  start(providerId: string): Promise<void>
+  cancel(providerId: string): Promise<void>
+  onStatus(callback: (event: OAuthStatusEvent) => void): () => void
 }

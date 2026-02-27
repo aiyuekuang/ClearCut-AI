@@ -4,6 +4,19 @@
 import type { ProviderConfig } from '../../src/types/provider'
 
 export const PRESET_PROVIDERS: ProviderConfig[] = [
+  // --- OAuth Providers (浏览器登录，免费使用) ---
+  {
+    id: 'qwen-portal',
+    name: '通义千问 (浏览器登录)',
+    baseUrl: 'https://portal.qwen.ai/v1',
+    sdkType: 'openai-compatible',
+    authModes: ['oauth'],
+    // portal.qwen.ai 使用别名 ID，参考 openclaw-cn 实现
+    models: [
+      { id: 'coder-model', name: 'Qwen Coder (免费)', description: '文本/代码，实际 qwen3.5-plus' },
+      { id: 'vision-model', name: 'Qwen Vision (免费)', description: '多模态，实际 qwen3-vl-plus' },
+    ],
+  },
   {
     id: 'anthropic',
     name: 'Anthropic Claude',
@@ -12,6 +25,8 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     authModes: ['api_key'],
     envVar: 'ANTHROPIC_API_KEY',
     icon: 'anthropic',
+    apiKeyUrl: 'https://console.anthropic.com/settings/keys',
+    loginUrl: 'https://console.anthropic.com',
     models: [
       { id: 'claude-sonnet-4-5-20250929', name: 'Claude 4.5 Sonnet', description: '均衡性价比（推荐）' },
       { id: 'claude-opus-4-6', name: 'Claude 4.6 Opus', description: '最强推理能力' },
@@ -26,6 +41,8 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     authModes: ['api_key'],
     envVar: 'OPENAI_API_KEY',
     icon: 'openai',
+    apiKeyUrl: 'https://platform.openai.com/api-keys',
+    loginUrl: 'https://platform.openai.com',
     models: [
       { id: 'gpt-4o', name: 'GPT-4o', description: '多模态旗舰' },
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: '快速经济' },
@@ -40,6 +57,8 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     authModes: ['api_key'],
     envVar: 'DEEPSEEK_API_KEY',
     icon: 'deepseek',
+    apiKeyUrl: 'https://platform.deepseek.com/api_keys',
+    loginUrl: 'https://platform.deepseek.com/sign_in',
     models: [
       { id: 'deepseek-chat', name: 'DeepSeek Chat', description: '通用对话' },
       { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner', description: '深度推理' },
@@ -53,6 +72,8 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     authModes: ['api_key'],
     envVar: 'DASHSCOPE_API_KEY',
     icon: 'qwen',
+    apiKeyUrl: 'https://dashscope.console.aliyun.com/apiKey',
+    loginUrl: 'https://dashscope.console.aliyun.com/',
     models: [
       { id: 'qwen-max', name: 'Qwen Max', description: '最强能力' },
       { id: 'qwen-plus', name: 'Qwen Plus', description: '均衡性价比' },
@@ -67,6 +88,8 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     authModes: ['api_key'],
     envVar: 'MOONSHOT_API_KEY',
     icon: 'kimi',
+    apiKeyUrl: 'https://platform.moonshot.cn/console/api-keys',
+    loginUrl: 'https://platform.moonshot.cn/console',
     models: [
       { id: 'kimi-k2.5', name: 'Kimi K2.5', description: '最新旗舰' },
       { id: 'kimi-k2-turbo-preview', name: 'Kimi K2 Turbo', description: '快速响应' },
@@ -80,6 +103,8 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     authModes: ['api_key'],
     envVar: 'ZHIPU_API_KEY',
     icon: 'zhipu',
+    apiKeyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
+    loginUrl: 'https://open.bigmodel.cn/',
     models: [
       { id: 'glm-4-plus', name: 'GLM-4 Plus', description: '旗舰模型' },
       { id: 'glm-4-flash', name: 'GLM-4 Flash', description: '免费快速' },
@@ -92,6 +117,7 @@ export const PRESET_PROVIDERS: ProviderConfig[] = [
     sdkType: 'openai-compatible',
     authModes: ['api_key'],
     icon: 'ollama',
+    apiKeyUrl: 'https://ollama.com/download',
     models: [
       { id: 'qwen2.5:7b', name: 'Qwen2.5 7B', description: '中文推荐' },
       { id: 'qwen2.5:14b', name: 'Qwen2.5 14B', description: '更强中文能力' },

@@ -1,11 +1,22 @@
 // App root - config-driven router with antd dark theme provider
 // Reads routes from config and renders them with layout
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ConfigProvider, App as AntdApp, theme, Spin } from 'antd'
 import { routes } from '@/config/routes.config'
 import { AppLayout } from '@/components/layout/AppLayout'
+
+// Listens for sidecar startup failures and shows a persistent error toast
+function SidecarErrorWatcher() {
+  const { message } = AntdApp.useApp()
+  useEffect(() => {
+    return window.api.app.onSidecarError((msg) => {
+      void message.error(`AI 引擎启动失败：${msg}`, 0)
+    })
+  }, [message])
+  return null
+}
 
 const antdTheme = {
   algorithm: theme.darkAlgorithm,
@@ -85,6 +96,7 @@ export function App() {
   return (
     <ConfigProvider theme={antdTheme}>
       <AntdApp>
+        <SidecarErrorWatcher />
         <BrowserRouter>
           <Suspense fallback={<LoadingScreen />}>
             <Routes>

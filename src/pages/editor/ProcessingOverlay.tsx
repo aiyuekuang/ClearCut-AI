@@ -49,7 +49,6 @@ export function ProcessingOverlay() {
               percent={progress}
               size="small"
               strokeColor="#22D3EE"
-              trailColor="#2D2D2D"
               showInfo={false}
               strokeLinecap="round"
             />

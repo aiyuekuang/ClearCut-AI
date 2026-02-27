@@ -90,7 +90,7 @@ export function getActiveProvider(): { providerId: string; model: string } | nul
   // Fallback: find first configured provider
   const auths = loadProviderAuths()
   for (const [id, auth] of Object.entries(auths)) {
-    if (auth.apiKey) {
+    if (auth.apiKey || auth.accessToken) {
       const provider = getProviderById(id)
       const model = defaults[id] || provider?.models[0]?.id
       if (model) return { providerId: id, model }
@@ -114,7 +114,7 @@ export function getAllProviderStatuses(): ProviderStatus[] {
 
   return PRESET_PROVIDERS.map((p) => {
     const auth = auths[p.id]
-    const configured = !!(auth?.apiKey)
+    const configured = !!(auth?.apiKey || auth?.accessToken)
     return {
       providerId: p.id,
       configured,

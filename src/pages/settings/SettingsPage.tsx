@@ -1,17 +1,17 @@
 // Settings page - config-driven settings renderer
 // Reads settingsSections from config and renders each section automatically
-// AI section uses dedicated AISettings component
+// Rendered inside SettingsModal, not as a standalone route
 
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import { Menu } from 'antd'
+import { X } from 'lucide-react'
 import {
   Mic, WandSparkles, Captions, Brain, Download, Info,
   LayoutTemplate, SlidersHorizontal, FolderOpen,
 } from 'lucide-react'
 import { settingsSections } from '@/config/settings.config'
 import { SettingsSection } from './SettingsSection'
-import AISettings from './AISettings'
+import AIEngineSettings from './AIEngineSettings'
 import { AboutSection } from './AboutSection'
 import { TemplatesSection } from './TemplatesSection'
 
@@ -27,11 +27,13 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   'folder-open': FolderOpen,
 }
 
-export default function SettingsPage() {
-  const location = useLocation()
-  const initialSection =
-    (location.state as { section?: string } | null)?.section ?? settingsSections[0]?.id ?? 'general'
-  const [activeSection, setActiveSection] = useState(initialSection)
+type Props = {
+  onClose?: () => void
+  initialSection?: string
+}
+
+export default function SettingsPage({ onClose, initialSection }: Props) {
+  const [activeSection, setActiveSection] = useState(initialSection ?? settingsSections[0]?.id ?? 'general')
 
   const menuItems = settingsSections.map((section) => {
     const Icon = iconMap[section.icon]
@@ -43,9 +45,9 @@ export default function SettingsPage() {
   })
 
   return (
-    <div className="mx-auto flex max-w-5xl gap-6">
+    <div className="flex w-full">
       {/* Sidebar navigation */}
-      <nav className="w-44 shrink-0">
+      <nav className="w-48 shrink-0 border-r border-border bg-[#181818] flex flex-col py-5 px-2">
         <p className="mb-3 px-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider">
           设置
         </p>
@@ -63,22 +65,34 @@ export default function SettingsPage() {
         />
       </nav>
 
-      {/* Divider */}
-      <div className="w-px bg-border shrink-0" />
+      {/* Content area */}
+      <div className="flex flex-1 flex-col min-w-0 bg-[#1e1e1e]">
+        {/* Header with close button */}
+        <div className="flex h-11 shrink-0 items-center justify-end px-4 border-b border-border">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
 
-      {/* Content */}
-      <div className="min-w-0 flex-1 pt-0.5">
-        {activeSection === 'ai' ? (
-          <AISettings />
-        ) : activeSection === 'templates' ? (
-          <TemplatesSection />
-        ) : activeSection === 'about' ? (
-          <AboutSection />
-        ) : (
-          <SettingsSection
-            section={settingsSections.find((s) => s.id === activeSection)!}
-          />
-        )}
+        {/* Section content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeSection === 'ai-engine' ? (
+            <AIEngineSettings />
+          ) : activeSection === 'templates' ? (
+            <TemplatesSection />
+          ) : activeSection === 'about' ? (
+            <AboutSection />
+          ) : (
+            <SettingsSection
+              section={settingsSections.find((s) => s.id === activeSection)!}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
